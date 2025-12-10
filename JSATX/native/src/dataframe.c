@@ -16,49 +16,21 @@ static void trim(char *s) {
 
 /* Check if token is numeric */
 static int is_number(const char *s, double *out) {
-  if (!s || !*s)
+  char *end;
+  double val = strtod(s, &end);
+  if (end == s)
     return 0;
-
-  int has_digit = 0;
-  int has_dot = 0;
-
-  const char *p = s;
-
-  // Leading minus allowed
-  if (*p == '-')
-    p++;
-
-  for (; *p; p++) {
-    if (isdigit((unsigned char)*p)) {
-      has_digit = 1;
-    } else if (*p == '.') {
-      if (has_dot)
-        return 0; // second dot → not a number
-      has_dot = 1;
-    } else if (isspace((unsigned char)*p)) {
-      // allow trailing whitespace only
-      const char *q = p;
-      while (*q) {
-        if (!isspace((unsigned char)*q))
-          return 0;
-        q++;
-      }
-      break;
-    } else {
-      return 0; // any letter or symbol → NOT numeric
-    }
-  }
-
-  if (!has_digit)
+  while (*end && isspace((unsigned char)*end))
+    end++;
+  if (*end)
     return 0;
-
-  *out = atof(s);
+  *out = val;
   return 1;
 }
 
-/* ============================
+/* ============================================================
    CSV LOADING
-   ============================ */
+   ============================================================ */
 DataFrame *df_read_csv(const char *filename, char delimiter) {
   FILE *fp = fopen(filename, "r");
   if (!fp)
@@ -67,11 +39,9 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
   char *line = NULL;
   size_t len = 0;
 
-  /* ---- Read header ---- */
   getline(&line, &len, fp);
   trim(line);
 
-  /* Count columns */
   size_t cols = 1;
   for (char *p = line; *p; p++)
     if (*p == delimiter)
@@ -81,7 +51,7 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
   df->cols = cols;
   df->columns = calloc(cols, sizeof(DataFrameColumn));
 
-  /* Parse header names */
+  /* Parse column names */
   size_t ci = 0;
   char *tok, *save;
   tok = strtok_r(line, &delimiter, &save);
@@ -89,12 +59,11 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
   while (tok) {
     trim(tok);
     df->columns[ci].name = strdup(tok);
-    df->columns[ci].type = COL_NUMERIC; // assume numeric by default
+    df->columns[ci].type = COL_NUMERIC;
     tok = strtok_r(NULL, &delimiter, &save);
     ci++;
   }
 
-  /* ---- Read data ---- */
   size_t rows = 0, cap = 128;
   char ***temp = calloc(cap, sizeof(char **));
 
@@ -123,20 +92,20 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
 
   df->rows = rows;
 
-  /* ---- Type detection ---- */
+  /* Detect column types */
   for (size_t c = 0; c < cols; c++) {
     double tmp;
-    int numeric = 1;
+    int isnum = 1;
     for (size_t r = 0; r < rows; r++) {
       if (!is_number(temp[r][c], &tmp)) {
-        numeric = 0;
+        isnum = 0;
         break;
       }
     }
-    df->columns[c].type = numeric ? COL_NUMERIC : COL_STRING;
+    df->columns[c].type = isnum ? COL_NUMERIC : COL_STRING;
   }
 
-  /* ---- Allocate storage ---- */
+  /* Allocate */
   for (size_t c = 0; c < cols; c++) {
     if (df->columns[c].type == COL_NUMERIC)
       df->columns[c].numValues = calloc(rows, sizeof(double));
@@ -144,7 +113,7 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
       df->columns[c].strValues = calloc(rows, sizeof(char *));
   }
 
-  /* ---- Fill final storage ---- */
+  /* Fill */
   for (size_t c = 0; c < cols; c++) {
     for (size_t r = 0; r < rows; r++) {
       if (df->columns[c].type == COL_NUMERIC) {
@@ -157,7 +126,7 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
     }
   }
 
-  /* ---- Free temp ---- */
+  /* Free */
   for (size_t r = 0; r < rows; r++) {
     for (size_t c = 0; c < cols; c++)
       free(temp[r][c]);
@@ -171,45 +140,35 @@ DataFrame *df_read_csv(const char *filename, char delimiter) {
   return df;
 }
 
-/* ============================
-   Pretty print like Pandas
-   ============================ */
+/* ============================================================
+   Pretty Printing
+   ============================================================ */
 void df_head(const DataFrame *df, size_t n) {
   if (!df)
     return;
 
-  size_t limit = (n > df->rows) ? df->rows : n;
-
-  /* compute column widths */
+  size_t limit = n > df->rows ? df->rows : n;
   size_t *width = calloc(df->cols, sizeof(size_t));
 
   for (size_t c = 0; c < df->cols; c++) {
-    size_t w = strlen(df->columns[c].name);
-
+    width[c] = strlen(df->columns[c].name);
     for (size_t r = 0; r < limit; r++) {
       char buf[64];
-
       if (df->columns[c].type == COL_NUMERIC)
         snprintf(buf, sizeof(buf), "%.3f", df->columns[c].numValues[r]);
       else
         snprintf(buf, sizeof(buf), "%s", df->columns[c].strValues[r]);
-
-      if (strlen(buf) > w)
-        w = strlen(buf);
+      if (strlen(buf) > width[c])
+        width[c] = strlen(buf);
     }
-
-    width[c] = w;
   }
 
-  /* print header */
   for (size_t c = 0; c < df->cols; c++)
     printf("%-*s  ", (int)width[c], df->columns[c].name);
   printf("\n");
 
-  /* print rows */
   for (size_t r = 0; r < limit; r++) {
     for (size_t c = 0; c < df->cols; c++) {
-
       if (df->columns[c].type == COL_NUMERIC)
         printf("%-*.*f  ", (int)width[c], 3, df->columns[c].numValues[r]);
       else
@@ -221,24 +180,38 @@ void df_head(const DataFrame *df, size_t n) {
   free(width);
 }
 
-/* ============================
+/* ============================================================
    describe()
-   ============================ */
+   ============================================================ */
 void df_describe(const DataFrame *df) {
   printf("\nColumn        Mean\n-----------------------\n");
+
   for (size_t c = 0; c < df->cols; c++) {
     if (df->columns[c].type == COL_NUMERIC) {
       double sum = 0;
       for (size_t r = 0; r < df->rows; r++)
         sum += df->columns[c].numValues[r];
+
       printf("%-12s %.3f\n", df->columns[c].name, sum / df->rows);
     }
   }
 }
 
-/* ============================
-   Column Access
-   ============================ */
+/* ============================================================
+   Column Access (THIS FUNCTION WAS MISSING!)
+   ============================================================ */
+ColumnType df_get_column_type(const DataFrame *df, const char *name) {
+  if (!df || !name)
+    return -1;
+
+  for (size_t c = 0; c < df->cols; c++) {
+    if (strcmp(df->columns[c].name, name) == 0)
+      return df->columns[c].type;
+  }
+
+  return -1;
+}
+
 NDArray df_get_numeric_column(const DataFrame *df, const char *name) {
   for (size_t c = 0; c < df->cols; c++) {
     if (strcmp(df->columns[c].name, name) == 0 &&
@@ -254,22 +227,22 @@ NDArray df_get_numeric_column(const DataFrame *df, const char *name) {
 }
 
 char **df_get_string_column(const DataFrame *df, const char *name,
-                            size_t *out_rows) {
+                            size_t *rowsOut) {
   for (size_t c = 0; c < df->cols; c++) {
     if (strcmp(df->columns[c].name, name) == 0 &&
         df->columns[c].type == COL_STRING) {
 
-      *out_rows = df->rows;
+      *rowsOut = df->rows;
       return df->columns[c].strValues;
     }
   }
-  *out_rows = 0;
+  *rowsOut = 0;
   return NULL;
 }
 
-/* ============================
+/* ============================================================
    Free memory
-   ============================ */
+   ============================================================ */
 void df_free(DataFrame *df) {
   if (!df)
     return;

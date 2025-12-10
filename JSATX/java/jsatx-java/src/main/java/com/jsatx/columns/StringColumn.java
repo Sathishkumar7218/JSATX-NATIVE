@@ -1,34 +1,33 @@
 package com.jsatx.columns;
 
-public class StringColumn extends Column {
+import com.jsatx.jsatx.NativeLib;
 
-    private final String[] data;
+/**
+ * String column backed by native char** pointer.
+ * Simple API: get(i), size()
+ */
+public class StringColumn {
 
-    public StringColumn(String name, String[] values) {
-        super(name);
-        this.data = values;
+    private final String name;
+    private final long strArrayPtr; // pointer returned by dfGetStringColumn
+    private final int size;
+
+    public StringColumn(String name, long strArrayPtr, int size) {
+        this.name = name;
+        this.strArrayPtr = strArrayPtr;
+        this.size = size;
     }
 
-    @Override
-    public boolean isString() {
-        return true;
-    }
-
-    @Override
-    public boolean isNumeric() {
-        return false;
-    }
-
-    @Override
-    public String[] asString() {
-        return data;
-    }
-
-    public String get(int index) {
-        return data[index];
+    public String getName() {
+        return name;
     }
 
     public int size() {
-        return data.length;
+        return size;
+    }
+
+    /** Returns the string at index (0-based) using JNI helper */
+    public String get(int i) {
+        return NativeLib.dfStringAt(strArrayPtr, i);
     }
 }

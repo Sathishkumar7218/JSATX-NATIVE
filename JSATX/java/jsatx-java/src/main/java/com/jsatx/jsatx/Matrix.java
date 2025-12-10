@@ -1,53 +1,40 @@
 package com.jsatx.jsatx;
 
 /**
- * JSATX Matrix wrapper over native NDArray.
- * NumPy-like operations exposed to Java.
+ * Thin Java wrapper for native NDArray used as Matrix.
+ * Constructor takes native pointer and dimensions (rows, cols).
+ *
+ * Relies on NativeLib JNI functions:
+ *   ndarrayGet, ndarraySum, ndarrayMean, ndarrayDot, ndarrayFree
  */
 public class Matrix {
 
-    private final long ptr;
+    private final long ptr; // native NDArray*
+    private final int rows;
+    private final int cols;
 
-    public Matrix(long nativePtr) {
-        this.ptr = nativePtr;
+    public Matrix(long ptr, int rows, int cols) {
+        this.ptr = ptr;
+        this.rows = rows;
+        this.cols = cols;
     }
 
-    public static Matrix zeros(int rows, int cols) {
-        long p = NativeLib.ndarrayZeros(rows, cols);
-        return new Matrix(p);
-    }
-
-    public static Matrix ones(int rows, int cols) {
-        long p = NativeLib.ndarrayOnes(rows, cols);
-        return new Matrix(p);
-    }
-
-    public static Matrix array(double[][] values) {
-        int r = values.length;
-        int c = values[0].length;
-        long p = NativeLib.ndarrayNew(r, c);
-        Matrix m = new Matrix(p);
-
-        for (int i = 0; i < r; i++) for (
-            int j = 0;
-            j < c;
-            j++
-        ) NativeLib.ndarraySet(p, i, j, values[i][j]);
-
-        return m;
-    }
-
-    public double get(int r, int c) {
-        return NativeLib.ndarrayGet(ptr, r, c);
-    }
-
-    public void set(int r, int c, double v) {
-        NativeLib.ndarraySet(ptr, r, c, v);
+    /** natural print with 3 decimal places */
+    public void print() {
+        for (int r = 0; r < rows; r++) {
+            StringBuilder sb = new StringBuilder();
+            for (int c = 0; c < cols; c++) {
+                sb.append(
+                    String.format("%.3f  ", NativeLib.ndarrayGet(ptr, r, c))
+                );
+            }
+            System.out.println(sb.toString().trim());
+        }
     }
 
     public Matrix dot(Matrix other) {
-        long p = NativeLib.ndarrayDot(this.ptr, other.ptr);
-        return new Matrix(p);
+        long outPtr = NativeLib.ndarrayDot(this.ptr, other.ptr);
+        return new Matrix(outPtr, this.rows, other.cols);
     }
 
     public double sum() {
@@ -58,11 +45,16 @@ public class Matrix {
         return NativeLib.ndarrayMean(ptr);
     }
 
-    public long nativePtr() {
-        return ptr;
-    }
-
+    /** free native memory for this NDArray */
     public void close() {
         NativeLib.ndarrayFree(ptr);
+    }
+
+    public int rows() {
+        return rows;
+    }
+
+    public int cols() {
+        return cols;
     }
 }
