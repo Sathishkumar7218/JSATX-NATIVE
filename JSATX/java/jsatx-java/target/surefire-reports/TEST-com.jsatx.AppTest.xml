@@ -12,7 +12,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="/usr/lib/jvm/java-21-openjdk/lib"/>
-    <property name="sun.java.command" value="/home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/surefire/surefirebooter-20251209164328696_3.jar /home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/surefire 2025-12-09T16-43-28_595-jvmRun1 surefire-20251209164328696_1tmp surefire_0-20251209164328696_2tmp"/>
+    <property name="sun.java.command" value="/home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/surefire/surefirebooter-20251220113848487_3.jar /home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/surefire 2025-12-20T11-38-48_383-jvmRun1 surefire-20251220113848487_1tmp surefire_0-20251220113848487_2tmp"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/test-classes:/home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/classes:/home/robin/.m2/repository/junit/junit/3.8.1/junit-3.8.1.jar:"/>
     <property name="sun.cpu.endian" value="little"/>
@@ -27,13 +27,13 @@
     <property name="line.separator" value="&#10;"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
-    <property name="surefire.real.class.path" value="/home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/surefire/surefirebooter-20251209164328696_3.jar"/>
+    <property name="surefire.real.class.path" value="/home/robin/vs code/Final_year/JSATX/java/jsatx-java/target/surefire/surefirebooter-20251220113848487_3.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="java.runtime.version" value="21.0.9+10"/>
     <property name="user.name" value="robin"/>
     <property name="stdout.encoding" value="UTF-8"/>
     <property name="path.separator" value=":"/>
-    <property name="os.version" value="6.17.9-300.fc43.x86_64"/>
+    <property name="os.version" value="6.17.12-300.fc43.x86_64"/>
     <property name="java.runtime.name" value="OpenJDK Runtime Environment"/>
     <property name="file.encoding" value="UTF-8"/>
     <property name="java.vm.name" value="OpenJDK 64-Bit Server VM"/>
@@ -46,7 +46,7 @@
     <property name="os.arch" value="amd64"/>
     <property name="java.vm.specification.name" value="Java Virtual Machine Specification"/>
     <property name="native.encoding" value="UTF-8"/>
-    <property name="java.library.path" value=":/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/>
+    <property name="java.library.path" value="/usr/java/packages/lib:/usr/lib64:/lib64:/lib:/usr/lib"/>
     <property name="java.vm.info" value="mixed mode, sharing"/>
     <property name="stderr.encoding" value="UTF-8"/>
     <property name="java.vendor" value="Red Hat, Inc."/>
@@ -54,5 +54,5 @@
     <property name="sun.io.unicode.encoding" value="UnicodeLittle"/>
     <property name="java.class.version" value="65.0"/>
   </properties>
-  <testcase name="testApp" classname="com.jsatx.AppTest" time="0.004"/>
+  <testcase name="testApp" classname="com.jsatx.AppTest" time="0.006"/>
 </testsuite>
