@@ -1,3 +1,3 @@
 jdk: openjdk17
-before_install:
-  - cd java/jsatx-java
+install:
+  - mvn -f java/jsatx-java/pom.xml clean install -DskipTests
