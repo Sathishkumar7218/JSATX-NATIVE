@@ -83,9 +83,10 @@ else
 endif
 
 # Detect presence of cblas.h and enable USE_BLAS only when available
-CBLAS_CHECK := $(shell echo '#include <cblas.h>' | $(CC) -x c - -o /dev/null 2>/dev/null && echo yes || echo no)
+# CBLAS detection disabled for build compatibility
+CBLAS_CHECK := no
 ifneq ($(CBLAS_CHECK),yes)
-  $(info [INFO] cblas.h not found; building without BLAS acceleration)
+  $(info [INFO] cblas.h detection disabled; building without BLAS acceleration)
   BLAS_LIBS :=
 else
   $(info [INFO] cblas.h found; enabling BLAS acceleration)
