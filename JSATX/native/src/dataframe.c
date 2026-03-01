@@ -10,19 +10,21 @@ DataFrame *df_read_csv(const char *path, char delimiter) {
   FILE *fp = fopen(path, "r");
   if (!fp) return NULL;
 
-  // First pass: count rows and columns
-  char line[1024];
+  // First pass: count rows and columns using getline for robust long-line handling
+  char *line = NULL;
+  size_t len = 0;
+  ssize_t read;
   size_t rows = 0;
   size_t cols = 0;
-  while (fgets(line, sizeof(line), fp)) {
-    if (rows == 0) {
-      // Parse header
-      char *token = strtok(line, ",");
-      while (token) {
-        cols++;
-        token = strtok(NULL, ",");
-      }
-    }
+
+  if ((read = getline(&line, &len, fp)) != -1) {
+    // header line
+    for (char *p = line; *p; p++) if (*p == delimiter) cols++;
+    cols++; // separators + 1
+    rows = 1; // header counted
+  }
+
+  while ((read = getline(&line, &len, fp)) != -1) {
     rows++;
   }
   rows--; // subtract header
@@ -32,45 +34,53 @@ DataFrame *df_read_csv(const char *path, char delimiter) {
   DataFrame *df = df_new_empty(rows, cols);
 
   // Read header
-  if (fgets(line, sizeof(line), fp)) {
-    char *token = strtok(line, ",");
-    for (size_t c = 0; c < cols && token; c++) {
-      // Remove newline
-      token[strcspn(token, "\n")] = 0;
-      df->col_names[c] = strdup(token);
-      token = strtok(NULL, ",");
+  if ((read = getline(&line, &len, fp)) != -1) {
+    // tokenize header by delimiter
+    char *start = line;
+    for (size_t c = 0; c < cols; c++) {
+      char *p = start;
+      while (*p && *p != delimiter && *p != '\n' && *p != '\r') p++;
+      char saved = *p;
+      *p = '\0';
+      df->col_names[c] = strdup(start);
+      *p = saved;
+      if (saved == '\0' || saved == '\n' || saved == '\r') break;
+      start = p + 1;
     }
   }
 
-  // Read data
-  for (size_t r = 0; r < rows; r++) {
-    if (!fgets(line, sizeof(line), fp)) break;
-    
-    char *token = strtok(line, ",");
-    for (size_t c = 0; c < cols && token; c++) {
-      // Remove newline
-      token[strcspn(token, "\n")] = 0;
-      
+  // Read data lines and parse without strtok (faster and safer)
+  size_t r = 0;
+  while ((read = getline(&line, &len, fp)) != -1 && r < rows) {
+    char *start = line;
+    for (size_t c = 0; c < cols; c++) {
+      char *p = start;
+      while (*p && *p != delimiter && *p != '\n' && *p != '\r') p++;
+      char saved = *p;
+      *p = '\0';
+
       // Try to parse as number
       char *endptr;
-      double val = strtod(token, &endptr);
+      double val = strtod(start, &endptr);
       if (*endptr == '\0') {
-        // It's a number
         df->col_types[c] = COL_TYPE_NUMERIC;
         ndarray_set(&df->numeric, r, c, val);
       } else {
-        // It's a string
         df->col_types[c] = COL_TYPE_STRING;
         if (!df->strings[c]) {
           df->strings[c] = calloc(rows, sizeof(char *));
         }
-        df->strings[c][r] = strdup(token);
+        df->strings[c][r] = strdup(start);
       }
-      
-      token = strtok(NULL, ",");
+
+      *p = saved;
+      if (saved == '\0' || saved == '\n' || saved == '\r') break;
+      start = p + 1;
     }
+    r++;
   }
 
+  free(line);
   fclose(fp);
   return df;
 }
@@ -185,6 +195,31 @@ NDArray *df_get_numeric_column(const DataFrame *df, const char *col_name) {
     ndarray_set(col, r, 0, v);
   }
   return col;
+}
+
+/* Fast aggregations that operate directly on DataFrame storage without copying */
+
+double df_sum_column(const DataFrame *df, const char *col_name) {
+  size_t c = df_find_column(df, col_name);
+  if (c == (size_t)-1 || df->col_types[c] != COL_TYPE_NUMERIC) return 0.0;
+  size_t rows = df->rows;
+  size_t cols = df->numeric.cols;
+  double *data = df->numeric.data;
+  double sum = 0.0;
+
+  /* Parallelize aggregation using OpenMP if available */
+  #pragma omp parallel for reduction(+:sum)
+  for (size_t r = 0; r < rows; r++) {
+    sum += data[r * cols + c];
+  }
+  return sum;
+}
+
+double df_mean_column(const DataFrame *df, const char *col_name) {
+  size_t rows = df->rows;
+  if (rows == 0) return 0.0;
+  double s = df_sum_column(df, col_name);
+  return s / (double)rows;
 }
 
 char **df_get_string_column(const DataFrame *df, const char *col_name) {

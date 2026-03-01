@@ -128,6 +128,20 @@ JNIEXPORT jlong JNICALL Java_com_jsatx_jsatx_NativeLib_dfGetNumericColumn(JNIEnv
   return (jlong)(intptr_t)arr;
 }
 
+JNIEXPORT jdouble JNICALL Java_com_jsatx_jsatx_NativeLib_dfSumColumn(JNIEnv *env, jclass cls, jlong ptr, jstring colName) {
+  const char *cname = (*env)->GetStringUTFChars(env, colName, NULL);
+  double s = df_sum_column(castDF(ptr), cname);
+  (*env)->ReleaseStringUTFChars(env, colName, cname);
+  return (jdouble)s;
+}
+
+JNIEXPORT jdouble JNICALL Java_com_jsatx_jsatx_NativeLib_dfMeanColumn(JNIEnv *env, jclass cls, jlong ptr, jstring colName) {
+  const char *cname = (*env)->GetStringUTFChars(env, colName, NULL);
+  double m = df_mean_column(castDF(ptr), cname);
+  (*env)->ReleaseStringUTFChars(env, colName, cname);
+  return (jdouble)m;
+}
+
 JNIEXPORT jlong JNICALL Java_com_jsatx_jsatx_NativeLib_dfGetStringColumn(JNIEnv *env, jclass cls, jlong ptr, jstring colName) {
   const char *cname = (*env)->GetStringUTFChars(env, colName, NULL);
   char **strs = df_get_string_column(castDF(ptr), cname);

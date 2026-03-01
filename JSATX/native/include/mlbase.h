@@ -23,13 +23,20 @@ double ndarray_sum(const NDArray *arr);
 double ndarray_mean(const NDArray *arr);
 NDArray ndarray_dot(const NDArray *A, const NDArray *B);
 
+/* Forward declare DataFrame for aggregation prototypes */
+typedef struct DataFrame DataFrame;
+
+/* Fast column-wise aggregations to avoid copying columns for large data */
+double df_sum_column(const DataFrame *df, const char *col_name);
+double df_mean_column(const DataFrame *df, const char *col_name);
+
 typedef enum {
   COL_TYPE_UNKNOWN = 0,
   COL_TYPE_NUMERIC = 1,
   COL_TYPE_STRING = 2
 } ColumnType;
 
-typedef struct {
+typedef struct DataFrame {
   size_t rows;
   size_t cols;
   char **col_names;

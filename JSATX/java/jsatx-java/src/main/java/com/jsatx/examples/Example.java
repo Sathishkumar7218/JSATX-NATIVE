@@ -13,6 +13,8 @@ public class Example {
         System.out.println("          JSATX — Native Data Engine");
         System.out.println("============================================\n");
 
+        long startTime = System.nanoTime();
+
         DataFrame df = new DataFrame("sample.csv");
 
         System.out.println("\n--- df.head(5) ---");
@@ -22,21 +24,21 @@ public class Example {
         df.describe();
 
         System.out.println("\n--- Numeric column: Age ---");
-        NumericColumn age = df.getNumeric("Age");
-        System.out.println("Age size: " + age.size());
-        System.out.println("Age sum : " + age.sum());
-        System.out.println("Age mean: " + age.mean());
+        System.out.println("Age size: " + df.size("Age"));
+        System.out.println("Age sum : " + df.sum("Age"));
+        System.out.println("Age mean: " + df.mean("Age"));
 
         System.out.println("\nAge values:");
-        for (int i = 0; i < age.size(); i++) {
-            System.out.println("  " + age.get(i));
+        double[] ages = df.valuesNumeric("Age");
+        for (double age : ages) {
+            System.out.println("  " + age);
         }
 
         System.out.println("\n--- String column: City ---");
-        StringColumn city = df.getString("City");
+        String[] cities = df.values("City");
         System.out.println("Cities:");
-        for (int i = 0; i < city.size(); i++) {
-            System.out.println("  " + city.get(i));
+        for (String city : cities) {
+            System.out.println("  " + city);
         }
 
         System.out.println("\n--- Matrix demo ---");
@@ -59,6 +61,8 @@ public class Example {
         B.close();
         C.close();
 
-        System.out.println("\n=== Demo finished ===");
+        long endTime = System.nanoTime();
+        double duration = (endTime - startTime) / 1_000_000.0; // milliseconds
+        System.out.println("\n=== Demo finished in " + duration + " ms ===");
     }
 }

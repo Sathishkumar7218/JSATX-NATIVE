@@ -1,0 +1,163 @@
+name: Publish to GitHub Packages (multi-platform)
+
+on:
+  workflow_dispatch: {}
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-publish:
+    name: Build, package native and publish per-platform
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86_64
+          - os: macos-latest
+            platform: macos-x86_64
+          - os: windows-latest
+            platform: windows-x86_64
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: (Windows only) Setup MSYS2 toolchain
+        if: ${{ matrix.platform == 'windows-x86_64' }}
+        uses: msys2/setup-msys2@v2
+        with:
+          msystem: MINGW64
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc mingw-w64-x86_64-make
+
+      - name: Build native library for ${{ matrix.platform }}
+        run: |
+          if [ "${{ matrix.platform }}" = "windows-x86_64" ]; then
+            # On Windows runner use bash (MSYS2) shell provided by the MSYS2 setup
+            bash -lc "make -C native PLATFORM=${{ matrix.platform }} && make -C native install PLATFORM=${{ matrix.platform }}"
+          else
+            make -C native PLATFORM=${{ matrix.platform }}
+            make -C native install PLATFORM=${{ matrix.platform }}
+          fi
+
+      - name: Ensure native resource present
+        run: |
+          ls -la java/jsatx-java/src/main/resources/natives/${{ matrix.platform }}
+        shell: bash
+      - name: Prepare maven settings for GitHub Packages
+        run: |
+          mkdir -p $HOME/.m2
+          cat > $HOME/.m2/settings.xml <<'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.GITHUB_TOKEN }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Package JAR (with platform native inside)
+        run: |
+          mvn -B -f java/jsatx-java -DskipTests package
+
+      - name: Deploy artifact with classifier (${ { matrix.platform } })
+        env:
+          REPO_URL: https://maven.pkg.github.com/${{ github.repository }}
+        run: |
+          mvn -B deploy:deploy-file \
+            -Dfile=java/jsatx-java/target/jsatx-java-1.0-SNAPSHOT.jar \
+            -DrepositoryId=github \
+            -Durl=${REPO_URL} \
+            -DgroupId=com.jsatx \
+            -DartifactId=jsatx-java \
+            -Dversion=1.0-SNAPSHOT \
+            -Dclassifier=${{ matrix.platform }} \
+            -Dpackaging=jar \
+            -s $HOME/.m2/settings.xml
+
+      - name: Upload built native resource for assembly
+        uses: actions/upload-artifact@v4
+        with:
+          name: natives-${{ matrix.platform }}
+          path: java/jsatx-java/src/main/resources/natives/${{ matrix.platform }}
+
+  assemble-fat-jar:
+    name: Assemble and publish fat JAR with all platforms
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Download native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Copy all natives into resources
+        run: |
+          mkdir -p java/jsatx-java/src/main/resources/natives
+          for d in artifacts/natives-*; do
+            echo "Copying $d"
+            cp -r "$d" "java/jsatx-java/src/main/resources/natives/"
+          done
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Package fat JAR and run integration tests
+        run: |
+          # Package and then run the Failsafe integration tests (verifies jar contents)
+          mvn -B -f java/jsatx-java -DskipTests=false clean package verify
+
+      - name: Verify fat JAR contains all platform natives (extra check)
+        run: |
+          ./scripts/check-fat-jar.sh java/jsatx-java/target/jsatx-java-1.0-SNAPSHOT.jar
+
+      - name: Prepare maven settings for GitHub Packages
+        run: |
+          mkdir -p $HOME/.m2
+          cat > $HOME/.m2/settings.xml <<'EOF'
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.GITHUB_TOKEN }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
+
+      - name: Deploy fat JAR (all platforms)
+        env:
+          REPO_URL: https://maven.pkg.github.com/${{ github.repository }}
+        run: |
+          mvn -B deploy:deploy-file \
+            -Dfile=java/jsatx-java/target/jsatx-java-1.0-SNAPSHOT.jar \
+            -DrepositoryId=github \
+            -Durl=${REPO_URL} \
+            -DgroupId=com.jsatx \
+            -DartifactId=jsatx-java \
+            -Dversion=1.0-SNAPSHOT \
+            -Dpackaging=jar \
+            -s $HOME/.m2/settings.xml

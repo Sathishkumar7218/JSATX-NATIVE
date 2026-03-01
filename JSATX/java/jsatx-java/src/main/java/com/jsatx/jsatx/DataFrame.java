@@ -63,6 +63,50 @@ public class DataFrame {
         return new StringColumn(name, strArrayPtr, rows);
     }
 
+    // Convenience methods for Python-like syntax
+
+    /** Get sum of numeric column (fast, avoids copying) */
+    public double sum(String colName) {
+        return NativeLib.dfSumColumn(ptr, colName);
+    }
+
+    /** Get mean of numeric column (fast, avoids copying) */
+    public double mean(String colName) {
+        return NativeLib.dfMeanColumn(ptr, colName);
+    }
+
+    /** Get size of any column */
+    public int size(String colName) {
+        int type = NativeLib.dfGetColumnType(ptr, colName);
+        if (type == 0) {
+            return getNumeric(colName).size();
+        } else if (type == 1) {
+            return getString(colName).size();
+        } else {
+            throw new RuntimeException("Unknown column type for: " + colName);
+        }
+    }
+
+    /** Get all values of string column as array */
+    public String[] values(String colName) {
+        StringColumn col = getString(colName);
+        String[] vals = new String[col.size()];
+        for (int i = 0; i < col.size(); i++) {
+            vals[i] = col.get(i);
+        }
+        return vals;
+    }
+
+    /** Get all values of numeric column as array */
+    public double[] valuesNumeric(String colName) {
+        NumericColumn col = getNumeric(colName);
+        double[] vals = new double[col.size()];
+        for (int i = 0; i < col.size(); i++) {
+            vals[i] = col.get(i);
+        }
+        return vals;
+    }
+
     /** Free native resources */
     public void close() {
         NativeLib.dfFree(ptr);

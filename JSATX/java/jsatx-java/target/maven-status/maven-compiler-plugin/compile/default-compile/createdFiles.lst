@@ -4,5 +4,4 @@ com/jsatx/columns/NumericColumn.class
 com/jsatx/columns/Column.class
 com/jsatx/jsatx/NativeLoader.class
 com/jsatx/columns/StringColumn.class
-com/jsatx/examples/Example.class
 com/jsatx/jsatx/NativeLib.class
