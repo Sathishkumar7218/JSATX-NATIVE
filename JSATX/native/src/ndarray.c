@@ -55,7 +55,10 @@ double ndarray_sum(const NDArray *arr) {
   if (!arr || !arr->data)
     return 0;
   double s = 0;
-  for (size_t i = 0; i < arr->rows * arr->cols; i++)
+  size_t n = arr->rows * arr->cols;
+  /* Parallel reduction over contiguous storage */
+  #pragma omp parallel for reduction(+:s)
+  for (size_t i = 0; i < n; i++)
     s += arr->data[i];
   return s;
 }
@@ -69,6 +72,10 @@ double ndarray_mean(const NDArray *arr) {
   return ndarray_sum(arr) / (double)n;
 }
 
+#ifdef USE_BLAS
+#include <cblas.h>
+#endif
+
 NDArray ndarray_dot(const NDArray *A, const NDArray *B) {
   NDArray out = ndarray_new(0, 0);
   if (!A || !B || !A->data || !B->data)
@@ -77,13 +84,30 @@ NDArray ndarray_dot(const NDArray *A, const NDArray *B) {
     return out;
 
   out = ndarray_new(A->rows, B->cols);
-  for (size_t i = 0; i < A->rows; i++) {
-    for (size_t j = 0; j < B->cols; j++) {
-      double acc = 0;
-      for (size_t k = 0; k < A->cols; k++)
-        acc += ndarray_get(A, i, k) * ndarray_get(B, k, j);
-      ndarray_set(&out, i, j, acc);
+  size_t AR = A->rows, AC = A->cols, BC = B->cols;
+  double *Ad = A->data;
+  double *Bd = B->data;
+  double *Od = out.data;
+
+#ifdef USE_BLAS
+  /* Use BLAS dgemm for best performance (row-major) */
+  cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans,
+              (int)AR, (int)BC, (int)AC,
+              1.0, Ad, (int)AC, Bd, (int)BC, 0.0, Od, (int)BC);
+  return out;
+#else
+  /* Parallelize over output rows */
+  #pragma omp parallel for
+  for (size_t i = 0; i < AR; i++) {
+    for (size_t j = 0; j < BC; j++) {
+      double acc = 0.0;
+      size_t baseA = i * AC;
+      for (size_t k = 0; k < AC; k++) {
+        acc += Ad[baseA + k] * Bd[k * BC + j];
+      }
+      Od[i * BC + j] = acc;
     }
   }
   return out;
+#endif
 }

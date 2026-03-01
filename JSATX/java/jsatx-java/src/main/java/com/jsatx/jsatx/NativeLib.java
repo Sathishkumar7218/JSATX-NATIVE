@@ -34,6 +34,10 @@ public final class NativeLib {
     // Numeric column → returns NDArray* pointer
     public static native long dfGetNumericColumn(long dfPtr, String colName);
 
+    // Fast column aggregations (avoid copying large columns)
+    public static native double dfSumColumn(long dfPtr, String colName);
+    public static native double dfMeanColumn(long dfPtr, String colName);
+
     // String column → returns internal char** pointer
     public static native long dfGetStringColumn(long dfPtr, String colName);
 

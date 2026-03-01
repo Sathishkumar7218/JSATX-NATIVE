@@ -19,6 +19,10 @@ public class Matrix {
         this.cols = cols;
     }
 
+    public long getPtr() {
+        return ptr;
+    }
+
     /** natural print with 3 decimal places */
     public void print() {
         for (int r = 0; r < rows; r++) {
